@@ -1,31 +1,26 @@
 const STORAGE_KEY = "arabic-calorie-assistant";
 
-const foodDatabase = [
-  { name: "أرز أبيض", caloriesPer100g: 130, servingCalories: 205 },
-  { name: "خبز عربي", caloriesPer100g: 275, servingCalories: 165 },
-  { name: "دجاج مشوي", caloriesPer100g: 165, servingCalories: 220 },
-  { name: "سمك مشوي", caloriesPer100g: 128, servingCalories: 190 },
-  { name: "بيض مسلوق", caloriesPer100g: 155, servingCalories: 78 },
-  { name: "سلطة خضراء", caloriesPer100g: 35, servingCalories: 60 },
-  { name: "شوفان", caloriesPer100g: 389, servingCalories: 150 },
-  { name: "زبادي قليل الدسم", caloriesPer100g: 63, servingCalories: 95 },
-  { name: "تفاح", caloriesPer100g: 52, servingCalories: 95 },
-  { name: "موز", caloriesPer100g: 89, servingCalories: 105 },
-  { name: "تمر", caloriesPer100g: 282, servingCalories: 66 },
-  { name: "عدس مطبوخ", caloriesPer100g: 116, servingCalories: 180 },
-  { name: "حمص", caloriesPer100g: 164, servingCalories: 135 },
-  { name: "بطاطا مشوية", caloriesPer100g: 93, servingCalories: 161 },
-  { name: "لحم مشوي", caloriesPer100g: 250, servingCalories: 280 },
-  { name: "فاصوليا مطبوخة", caloriesPer100g: 127, servingCalories: 170 },
-  { name: "شوربة خضار", caloriesPer100g: 40, servingCalories: 90 },
-  { name: "معكرونة مسلوقة", caloriesPer100g: 131, servingCalories: 220 },
-  { name: "رز بني", caloriesPer100g: 123, servingCalories: 216 },
-  { name: "مكسرات", caloriesPer100g: 607, servingCalories: 170 }
+const fallbackFoodDatabase = [
+  { name: "أرز أبيض", englishName: "White Rice", caloriesPer100g: 130, calories: 205, weight: 158, aliases: ["أرز أبيض", "White Rice"] },
+  { name: "دجاج مشوي", englishName: "Grilled Chicken", caloriesPer100g: 165, calories: 220, weight: 133, aliases: ["دجاج مشوي", "Grilled Chicken"] },
+  { name: "سمك مشوي", englishName: "Grilled Fish", caloriesPer100g: 128, calories: 190, weight: 148, aliases: ["سمك مشوي", "Grilled Fish"] },
+  { name: "بيض مسلوق", englishName: "Boiled Egg", caloriesPer100g: 155, calories: 78, weight: 50, aliases: ["بيض مسلوق", "Boiled Egg"] },
+  { name: "زبادي قليل الدسم", englishName: "Low Fat Yogurt", caloriesPer100g: 63, calories: 95, weight: 150, aliases: ["زبادي قليل الدسم", "Low Fat Yogurt"] }
 ];
+
+const foodDatabase = Array.isArray(window.FOODS_LIBRARY) && window.FOODS_LIBRARY.length
+  ? window.FOODS_LIBRARY
+  : fallbackFoodDatabase;
+
+const foodLookupMap = buildFoodLookupMap(foodDatabase);
 
 const foodSearchAliases = {
   "زيت الزيتون": ["olive oil", "extra virgin olive oil"],
   "الجرجير": ["arugula", "rocket", "rucola"],
+  "لبن يوناني": ["greek yogurt", "griekse yoghurt", "yoghurt greek style"],
+  "زبادي يوناني": ["greek yogurt", "griekse yoghurt"],
+  "لبن": ["yogurt", "yoghurt", "curd"],
+  "لبنة": ["labneh", "strained yogurt", "yoghurt spread"],
   "خس": ["lettuce"],
   "خيار": ["cucumber"],
   "طماطم": ["tomato"],
@@ -54,12 +49,28 @@ const foodSearchAliases = {
   "فاصوليا": ["beans"],
   "شوفان": ["oats"],
   "تمر": ["dates"],
-  "عسل": ["honey"]
+  "عسل": ["honey"],
+  "بروتين": ["protein powder", "whey protein", "eiwitpoeder"],
+  "واي بروتين": ["whey protein", "whey"],
+  "مكمل بروتين": ["protein powder", "whey protein"],
+  "كرياتين": ["creatine", "creatine monohydrate"],
+  "بار بروتين": ["protein bar", "eiwitreep"],
+  "سكير": ["skyr", "islandse yoghurt"],
+  "جبنة قريش": ["cottage cheese", "huttenkase"],
+  "زبدة فول سوداني": ["peanut butter", "pindakaas"],
+  "حليب بروتين": ["protein milk", "high protein milk"],
+  "خبز أسمر": ["whole wheat bread", "volkoren brood"],
+  "تونة": ["tuna"],
+  "جبن قليل الدسم": ["low fat cheese", "light cheese", "30+ kaas"]
 };
 
 const ingredientFallbackDatabase = {
   "زيت الزيتون": 884,
   "الجرجير": 25,
+  "لبن يوناني": 97,
+  "زبادي يوناني": 97,
+  "لبن": 61,
+  "لبنة": 180,
   "خس": 15,
   "خيار": 15,
   "طماطم": 18,
@@ -72,7 +83,6 @@ const ingredientFallbackDatabase = {
   "برتقال": 47,
   "بيض": 155,
   "جبن": 402,
-  "لبنة": 180,
   "زبادي": 61,
   "حليب": 42,
   "رز": 130,
@@ -87,7 +97,19 @@ const ingredientFallbackDatabase = {
   "فاصوليا": 127,
   "شوفان": 389,
   "تمر": 282,
-  "عسل": 304
+  "عسل": 304,
+  "واي بروتين": 400,
+  "بروتين": 400,
+  "مكمل بروتين": 400,
+  "كرياتين": 0,
+  "بار بروتين": 360,
+  "سكير": 63,
+  "جبنة قريش": 98,
+  "زبدة فول سوداني": 588,
+  "حليب بروتين": 60,
+  "خبز أسمر": 247,
+  "تونة": 132,
+  "جبن قليل الدسم": 240
 };
 
 const today = new Date().toISOString().split("T")[0];
@@ -102,6 +124,10 @@ const caloriesPer100gInput = document.getElementById("caloriesPer100g");
 const progressDateInput = document.getElementById("progressDate");
 const lookupFoodButton = document.getElementById("lookupFoodButton");
 const lookupStatus = document.getElementById("lookupStatus");
+const generateSummaryButton = document.getElementById("generateSummaryButton");
+const shareEmailButton = document.getElementById("shareEmailButton");
+const shareWhatsappButton = document.getElementById("shareWhatsappButton");
+const summaryOutput = document.getElementById("summaryOutput");
 let latestLookup = null;
 
 progressDateInput.value = today;
@@ -144,6 +170,9 @@ function bindEvents() {
   lookupFoodButton.addEventListener("click", lookupFoodOnline);
   document.getElementById("mealList").addEventListener("click", handleListActions);
   document.getElementById("progressList").addEventListener("click", handleListActions);
+  generateSummaryButton.addEventListener("click", handleGenerateSummary);
+  shareEmailButton.addEventListener("click", handleShareEmail);
+  shareWhatsappButton.addEventListener("click", handleShareWhatsapp);
 }
 
 function populateFoodOptions() {
@@ -162,7 +191,7 @@ function hydrateForms() {
 }
 
 function autoFillFoodValues() {
-  const selectedFood = foodDatabase.find((food) => food.name === foodNameInput.value.trim());
+  const selectedFood = findFoodInLibrary(foodNameInput.value.trim());
   if (selectedFood) {
     latestLookup = { source: "القائمة المحلية", caloriesPer100g: selectedFood.caloriesPer100g };
     caloriesPer100gInput.value = selectedFood.caloriesPer100g;
@@ -293,12 +322,16 @@ function buildSearchQueries(query) {
   const partialAliases = Object.entries(foodSearchAliases)
     .filter(([key]) => normalized.includes(normalizeArabicText(key)))
     .flatMap(([, aliases]) => aliases);
+  const tokenAliases = normalized
+    .split(/\s+/)
+    .flatMap((token) => foodSearchAliases[token] || []);
 
   const candidates = [
     query.trim(),
     normalized,
     ...directAliases,
-    ...partialAliases
+    ...partialAliases,
+    ...tokenAliases
   ]
     .map((item) => item.trim())
     .filter(Boolean);
@@ -312,12 +345,52 @@ function normalizeArabicText(text) {
     .toLowerCase()
     .replace(/[أإآ]/g, "ا")
     .replace(/ة/g, "ه")
-    .replace(/ى/g, "ي");
+    .replace(/ى/g, "ي")
+    .replace(/ؤ/g, "و")
+    .replace(/ئ/g, "ي")
+    .replace(/\s+/g, " ");
+}
+
+function buildFoodLookupMap(foods) {
+  const map = new Map();
+  foods.forEach((food) => {
+    const keys = new Set([
+      food.name,
+      food.englishName,
+      ...(Array.isArray(food.aliases) ? food.aliases : [])
+    ].filter(Boolean));
+
+    keys.forEach((key) => {
+      map.set(normalizeArabicText(key), food);
+    });
+  });
+  return map;
+}
+
+function findFoodInLibrary(query) {
+  if (!query) {
+    return null;
+  }
+
+  const normalized = normalizeArabicText(query);
+  if (foodLookupMap.has(normalized)) {
+    return foodLookupMap.get(normalized);
+  }
+
+  for (const [key, food] of foodLookupMap.entries()) {
+    if (key.includes(normalized) || normalized.includes(key)) {
+      return food;
+    }
+  }
+
+  return null;
 }
 
 function pickBestProductMatch(products, originalQuery, attemptedQuery) {
   const originalNormalized = normalizeArabicText(originalQuery);
   const attemptedNormalized = normalizeArabicText(attemptedQuery);
+  const originalTokens = new Set(originalNormalized.split(/\s+/).filter(Boolean));
+  const attemptedTokens = new Set(attemptedNormalized.split(/\s+/).filter(Boolean));
 
   const candidates = products
     .map((product) => {
@@ -346,6 +419,16 @@ function pickBestProductMatch(products, originalQuery, attemptedQuery) {
       }
       if (caloriesPer100g > 0) {
         score += 3;
+      }
+      for (const token of originalTokens) {
+        if (token.length > 1 && comparableName.includes(token)) {
+          score += 1;
+        }
+      }
+      for (const token of attemptedTokens) {
+        if (token.length > 1 && comparableName.includes(token)) {
+          score += 1;
+        }
       }
 
       return {
@@ -409,13 +492,13 @@ function handleMealSubmit(event) {
   const quantity = Number(document.getElementById("quantity").value || 1);
   const grams = Number(document.getElementById("grams").value || 0);
   const caloriesPer100g = Number(caloriesPer100gInput.value || 0);
-  const knownFood = foodDatabase.find((food) => food.name === foodName);
+  const knownFood = findFoodInLibrary(foodName);
 
   let totalCalories = 0;
   if (grams > 0 && caloriesPer100g > 0) {
     totalCalories = (grams / 100) * caloriesPer100g;
   } else if (knownFood) {
-    totalCalories = quantity * knownFood.servingCalories;
+    totalCalories = quantity * (knownFood.calories || knownFood.servingCalories || knownFood.caloriesPer100g || 0);
   } else if (caloriesPer100g > 0) {
     totalCalories = quantity * caloriesPer100g;
   }
@@ -428,7 +511,7 @@ function handleMealSubmit(event) {
     grams,
     caloriesPer100g,
     totalCalories: Math.round(totalCalories),
-    source: foodDatabase.some((food) => food.name === foodName)
+    source: !!findFoodInLibrary(foodName)
       ? "القائمة المحلية"
       : latestLookup?.source || "إدخال يدوي"
   });
@@ -505,6 +588,7 @@ function render() {
   renderMealList();
   renderProgress();
   renderAdvice();
+  renderSummaryPlaceholder();
 }
 
 function renderMetrics() {
@@ -705,6 +789,97 @@ function renderAdvice() {
   }
 
   adviceBox.innerHTML = advice.map((line) => `<div>${line}</div>`).join("");
+}
+
+function renderSummaryPlaceholder() {
+  if (!summaryOutput.dataset.generated) {
+    summaryOutput.textContent = "يمكنك إنشاء ملخص يومي ثم مشاركته يدوياً عبر البريد أو واتساب.";
+  }
+}
+
+function handleGenerateSummary() {
+  const summary = buildDailySummary();
+  summaryOutput.textContent = summary;
+  summaryOutput.dataset.generated = "true";
+}
+
+function handleShareEmail() {
+  const summary = buildDailySummary();
+  summaryOutput.textContent = summary;
+  summaryOutput.dataset.generated = "true";
+
+  const subject = encodeURIComponent(`ملخصي الصحي اليومي - ${today}`);
+  const body = encodeURIComponent(summary);
+  window.open(`mailto:?subject=${subject}&body=${body}`, "_self");
+}
+
+function handleShareWhatsapp() {
+  const summary = buildDailySummary();
+  summaryOutput.textContent = summary;
+  summaryOutput.dataset.generated = "true";
+
+  const text = encodeURIComponent(summary);
+  window.open(`https://wa.me/?text=${text}`, "_blank");
+}
+
+function buildDailySummary() {
+  const meals = getTodayMeals();
+  const caloriesToday = meals.reduce((sum, meal) => sum + meal.totalCalories, 0);
+  const bmi = calculateBmi(state.profile.weight, state.profile.height);
+  const bmiLabel = getBmiCategory(bmi).label;
+  const latestProgress = [...state.progress].sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+  const mealNames = meals.length
+    ? meals.map((meal) => `${meal.foodName} (${meal.totalCalories} سعرة)`).join("، ")
+    : "لم أسجل وجبات اليوم بعد";
+
+  const lines = [
+    `ملخص يومي بتاريخ ${today}`,
+    `إجمالي السعرات اليوم: ${caloriesToday} سعرة`,
+    `الوجبات: ${mealNames}`,
+    state.profile.weight ? `الوزن الحالي: ${state.profile.weight} كغ` : "الوزن الحالي: غير مسجل",
+    state.profile.height ? `الطول: ${state.profile.height} سم` : "الطول: غير مسجل",
+    bmi ? `BMI: ${bmi.toFixed(1)} (${bmiLabel})` : "BMI: غير محسوب",
+    latestProgress ? `آخر سجل تقدم: ${latestProgress.date} - ${latestProgress.weight} كغ` : "آخر سجل تقدم: لا يوجد",
+    "نصيحة اليوم:",
+    ...buildAdviceLinesForSummary(caloriesToday)
+  ];
+
+  return lines.join("\n");
+}
+
+function buildAdviceLinesForSummary(caloriesToday) {
+  const lines = [];
+  const bmi = calculateBmi(state.profile.weight, state.profile.height);
+  const trend = getWeightTrend();
+  const topCalories = summarizeTopCalorieFoods();
+
+  if (bmi >= 25) {
+    lines.push("حاول تقليل الأطعمة الأعلى بالسعرات والتركيز على البروتين الخفيف والخضار.");
+  } else if (bmi > 0) {
+    lines.push("استمر على التوازن الحالي مع متابعة السعرات بشكل يومي.");
+  } else {
+    lines.push("أدخل بيانات الوزن والطول للحصول على نصيحة أدق.");
+  }
+
+  if (caloriesToday === 0) {
+    lines.push("لم يتم تسجيل وجبات اليوم بعد.");
+  }
+
+  if (topCalories.length) {
+    lines.push(`أكثر الأطعمة تأثيراً بالسعرات: ${topCalories.join("، ")}.`);
+  }
+
+  if (trend !== null) {
+    if (trend < 0) {
+      lines.push(`اتجاه الوزن جيد: انخفاض ${Math.abs(trend).toFixed(1)} كغ بين آخر سجلين.`);
+    } else if (trend > 0) {
+      lines.push(`اتجاه الوزن صاعد: زيادة ${trend.toFixed(1)} كغ بين آخر سجلين.`);
+    } else {
+      lines.push("اتجاه الوزن ثابت بين آخر سجلين.");
+    }
+  }
+
+  return lines;
 }
 
 function calculateBmi(weight, heightCm) {
