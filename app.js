@@ -131,8 +131,10 @@ const shareEmailButton = document.getElementById("shareEmailButton");
 const shareWhatsappButton = document.getElementById("shareWhatsappButton");
 const summaryOutput = document.getElementById("summaryOutput");
 const generateMealPlanButton = document.getElementById("generateMealPlanButton");
+const refreshMealPlanButton = document.getElementById("refreshMealPlanButton");
 const mealPlanBox = document.getElementById("mealPlanBox");
 let latestLookup = null;
+let mealPlanSeed = Date.now();
 
 progressDateInput.value = today;
 
@@ -178,6 +180,7 @@ function bindEvents() {
   shareEmailButton.addEventListener("click", handleShareEmail);
   shareWhatsappButton.addEventListener("click", handleShareWhatsapp);
   generateMealPlanButton.addEventListener("click", handleGenerateMealPlan);
+  refreshMealPlanButton.addEventListener("click", handleRefreshMealPlan);
 }
 
 function populateFoodOptions() {
@@ -835,6 +838,16 @@ function handleShareWhatsapp() {
 }
 
 function handleGenerateMealPlan() {
+  mealPlanSeed = Date.now();
+  renderGeneratedMealPlan();
+}
+
+function handleRefreshMealPlan() {
+  mealPlanSeed = Date.now() + Math.floor(Math.random() * 100000);
+  renderGeneratedMealPlan();
+}
+
+function renderGeneratedMealPlan() {
   const plan = buildDailyMealPlan();
   if (!plan) {
     mealPlanBox.dataset.generated = "true";
@@ -851,7 +864,15 @@ function handleGenerateMealPlan() {
     ${plan.meals.map((meal) => `
       <div class="plan-card">
         <h3>${meal.title}</h3>
-        <p>${meal.description}</p>
+        <p>${meal.summary}</p>
+        <div class="plan-options">
+          ${meal.options.map((option, index) => `
+            <div class="plan-option">
+              <strong>الخيار ${index + 1} - ${option.total} سعرة تقريباً</strong>
+              <span>${option.description}</span>
+            </div>
+          `).join("")}
+        </div>
       </div>
     `).join("")}
     <div class="plan-card">
@@ -938,19 +959,19 @@ function buildDailyMealPlan() {
   const dinnerTarget = Math.round(targetCalories * 0.25);
   const snackTarget = Math.max(targetCalories - breakfastTarget - lunchTarget - dinnerTarget, 100);
 
-  const breakfast = buildMealFromNames(
+  const breakfast = buildMealOptions(
     breakfastTarget,
     ["لبن يوناني", "زبادي يوناني", "زبادي قليل الدسم", "شوفان", "تفاح", "موز", "سكير", "حليب"]
   );
-  const lunch = buildMealFromNames(
+  const lunch = buildMealOptions(
     lunchTarget,
     ["دجاج مشوي", "دجاج", "سمك مشوي", "سمك", "أرز أبيض", "أرز بني", "برغل", "عدس مطبوخ", "عدس", "حمص", "سلطة خضراء", "الجرجير"]
   );
-  const dinner = buildMealFromNames(
+  const dinner = buildMealOptions(
     dinnerTarget,
     ["تونة", "سمك مشوي", "زبادي", "لبن يوناني", "عدس", "سلطة خضراء", "الجرجير", "خيار", "طماطم"]
   );
-  const snack = buildMealFromNames(
+  const snack = buildMealOptions(
     snackTarget,
     ["تفاح", "موز", "سكير", "زبادي قليل الدسم", "مكسرات", "حليب", "تمر"]
   );
@@ -958,10 +979,10 @@ function buildDailyMealPlan() {
   return {
     goalText: `النطاق المناسب لك اليوم تقريباً هو ${targetCalories} سعرة. هذا الاقتراح موزع على الفطور والغداء والعشاء والوجبة الخفيفة.`,
     meals: [
-      { title: `فطور (${breakfast.total} سعرة تقريباً)`, description: breakfast.description },
-      { title: `غداء (${lunch.total} سعرة تقريباً)`, description: lunch.description },
-      { title: `عشاء (${dinner.total} سعرة تقريباً)`, description: dinner.description },
-      { title: `وجبة خفيفة (${snack.total} سعرة تقريباً)`, description: snack.description }
+      { title: "فطور", summary: `3 اقتراحات ضمن حدود تقارب ${breakfast.target} سعرة.`, options: breakfast.options },
+      { title: "غداء", summary: `3 اقتراحات ضمن حدود تقارب ${lunch.target} سعرة.`, options: lunch.options },
+      { title: "عشاء", summary: `3 اقتراحات ضمن حدود تقارب ${dinner.target} سعرة.`, options: dinner.options },
+      { title: "وجبة خفيفة", summary: `3 اقتراحات ضمن حدود تقارب ${snack.target} سعرة.`, options: snack.options }
     ],
     note: bmi >= 25
       ? "بما أن الهدف يميل إلى نزول الوزن، حاول اختيار الشوي أو السلق وقلل الزيوت والحلويات والخبز الزائد."
@@ -969,7 +990,7 @@ function buildDailyMealPlan() {
   };
 }
 
-function buildMealFromNames(targetCalories, preferredNames) {
+function buildMealOptions(targetCalories, preferredNames) {
   const matchedFoods = preferredNames
     .map((name) => findFoodInLibrary(name) || createFallbackFood(name))
     .filter(Boolean)
@@ -989,35 +1010,81 @@ function buildMealFromNames(targetCalories, preferredNames) {
     }
   }
 
-  const selected = [];
-  let total = 0;
-
-  for (const food of uniqueFoods) {
-    const calories = food.calories;
-    if (!calories || calories > targetCalories * 0.9) {
-      continue;
-    }
-
-    selected.push(food);
-    total += calories;
-    if (total >= targetCalories * 0.75) {
-      break;
-    }
-  }
-
-  if (!selected.length && uniqueFoods.length) {
-    selected.push(uniqueFoods[0]);
-    total = uniqueFoods[0].calories;
-  }
-
-  const description = selected.length
-    ? selected.map((food) => `${food.name} (${food.calories} سعرة)`).join(" + ")
-    : "لم أجد اقتراحاً مناسباً في المكتبة الحالية.";
-
   return {
-    total,
-    description
+    target: targetCalories,
+    options: createMealOptionSets(uniqueFoods, targetCalories)
   };
+}
+
+function createMealOptionSets(foods, targetCalories) {
+  if (!foods.length) {
+    return [{
+      total: 0,
+      description: "لم أجد اقتراحاً مناسباً في المكتبة الحالية."
+    }];
+  }
+
+  const rotated = rotateArray(foods, mealPlanSeed);
+  const options = [];
+
+  for (let offset = 0; offset < 3; offset += 1) {
+    const pool = rotateArray(rotated, offset * 2 + mealPlanSeed);
+    const selected = [];
+    let total = 0;
+
+    for (const food of pool) {
+      if (selected.some((item) => normalizeArabicText(item.name) === normalizeArabicText(food.name))) {
+        continue;
+      }
+
+      const calories = food.calories;
+      if (!calories || calories > targetCalories) {
+        continue;
+      }
+
+      selected.push(food);
+      total += calories;
+
+      if (selected.length >= 3 || total >= targetCalories * 0.8) {
+        break;
+      }
+    }
+
+    if (!selected.length) {
+      selected.push(pool[0]);
+      total = pool[0].calories;
+    }
+
+    options.push({
+      total,
+      description: selected.map((food) => `${food.name} (${food.calories} سعرة)`).join(" + ")
+    });
+  }
+
+  return dedupeMealOptions(options);
+}
+
+function dedupeMealOptions(options) {
+  const seen = new Set();
+  const unique = [];
+
+  for (const option of options) {
+    const key = normalizeArabicText(option.description);
+    if (!seen.has(key)) {
+      seen.add(key);
+      unique.push(option);
+    }
+  }
+
+  return unique;
+}
+
+function rotateArray(items, seed) {
+  if (!items.length) {
+    return [];
+  }
+  const offset = Math.abs(seed) % items.length;
+  return items.slice(offset).concat(items.slice(0, offset));
 }
 
 function createFallbackFood(name) {
