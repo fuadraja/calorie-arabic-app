@@ -235,6 +235,24 @@ select:focus {
   line-height: 1.8;
 }
 
+.plan-options {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.plan-option {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(184, 92, 56, 0.05);
+  border: 1px solid rgba(184, 92, 56, 0.12);
+}
+
+.plan-option strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
 .primary:hover {
   transform: translateY(-1px);
   box-shadow: 0 14px 24px rgba(141, 67, 37, 0.22);
