@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>مساعد السعرات والتقدم الصحي</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">تطبيق عربي لتتبع الطعام والصحة</p>
+        <h1>مساعد السعرات والتقدم الصحي</h1>
+        <p class="hero-text">
+          أدخل وجباتك بالعربية، وسجّل الوزن والطول والعمر، ثم تابع السعرات اليومية ومؤشر كتلة الجسم والتحليل الذكي للتقدم.
+        </p>
+      </div>
+      <div class="hero-card">
+        <div class="metric">
+          <span>إجمالي سعرات اليوم</span>
+          <strong id="todayCalories">0</strong>
+        </div>
+        <div class="metric">
+          <span>مؤشر كتلة الجسم BMI</span>
+          <strong id="currentBmi">0.0</strong>
+        </div>
+        <div class="metric">
+          <span>معدل الأيض BMR</span>
+          <strong id="currentBmr">0</strong>
+        </div>
+      </div>
+    </header>
+
+    <main class="grid">
+      <section class="panel">
+        <div class="section-title">
+          <h2>البيانات الشخصية</h2>
+          <p>تُستخدم لحساب الاحتياج الأساسي ومتابعة التحسن.</p>
+        </div>
+        <form id="profileForm" class="form-grid">
+          <label>
+            العمر
+            <input type="number" id="age" min="1" max="120" required>
+          </label>
+          <label>
+            الطول (سم)
+            <input type="number" id="height" min="50" max="250" required>
+          </label>
+          <label>
+            الوزن الحالي (كغ)
+            <input type="number" id="weight" min="20" max="400" step="0.1" required>
+          </label>
+          <label>
+            الجنس
+            <select id="gender">
+              <option value="male">ذكر</option>
+              <option value="female">أنثى</option>
+            </select>
+          </label>
+          <button type="submit" class="primary">حفظ البيانات وحساب المؤشرات</button>
+        </form>
+        <div id="profileSummary" class="info-box"></div>
+      </section>
+
+      <section class="panel">
+        <div class="section-title">
+          <h2>إضافة وجبة</h2>
+          <p>اختر الطعام من القائمة العربية أو اكتبه بنفسك.</p>
+        </div>
+        <form id="mealForm" class="form-grid">
+          <label class="wide">
+            اسم الطعام
+            <input type="text" id="foodName" list="foodOptions" placeholder="مثال: أرز أبيض" required>
+            <datalist id="foodOptions"></datalist>
+          </label>
+          <div class="search-row wide">
+            <button type="button" id="lookupFoodButton" class="secondary">البحث عن السعرات عبر الإنترنت</button>
+            <div id="lookupStatus" class="lookup-status">استخدم هذا الزر إذا كان الطعام غير موجود في القائمة.</div>
+          </div>
+          <label>
+            العدد
+            <input type="number" id="quantity" min="1" value="1">
+          </label>
+          <label>
+            الوزن (غرام)
+            <input type="number" id="grams" min="0" step="1" placeholder="مثال: 150">
+          </label>
+          <label>
+            السعرات لكل 100غ أو للحصة
+            <input type="number" id="caloriesPer100g" min="0" step="1" placeholder="تُملأ تلقائياً إن وُجد الطعام">
+          </label>
+          <button type="submit" class="primary">إضافة الوجبة</button>
+        </form>
+        <div class="info-box subtle">
+          إذا أدخلت الوزن بالغرام فسيحسب التطبيق السعرات حسب الوزن. وإذا تركته فارغاً فسيستخدم العدد مع سعر الحصة الواحدة أو القيمة التي أدخلتها يدوياً.
+        </div>
+        <div class="info-box">
+          إذا كان الطعام غير موجود في القائمة، اكتب اسمه بالعربية أو الإنجليزية ثم اضغط "البحث عن السعرات عبر الإنترنت" ليجلب التطبيق أقرب نتيجة غذائية ويستخدمها في الحساب.
+        </div>
+      </section>
+
+      <section class="panel panel-wide">
+        <div class="section-title">
+          <h2>وجبات اليوم</h2>
+          <p>ملخص مباشر للوجبات المدخلة اليوم.</p>
+        </div>
+        <div id="mealList" class="list"></div>
+      </section>
+
+      <section class="panel">
+        <div class="section-title">
+          <h2>تسجيل التقدم</h2>
+          <p>احفظ وزنك وملاحظتك اليومية لعرض السجل والتحليل.</p>
+        </div>
+        <form id="progressForm" class="form-grid">
+          <label>
+            التاريخ
+            <input type="date" id="progressDate" required>
+          </label>
+          <label>
+            الوزن (كغ)
+            <input type="number" id="progressWeight" min="20" max="400" step="0.1" required>
+          </label>
+          <label class="wide">
+            ملاحظة
+            <input type="text" id="progressNote" placeholder="مثال: التزمت بالعشاء الخفيف">
+          </label>
+          <button type="submit" class="primary">حفظ التقدم</button>
+        </form>
+      </section>
+
+      <section class="panel">
+        <div class="section-title">
+          <h2>تحليل ونصيحة</h2>
+          <p>اقتراحات مبنية على بياناتك الحالية وسجل الأكل.</p>
+        </div>
+        <div id="adviceBox" class="advice-box"></div>
+      </section>
+
+      <section class="panel panel-wide">
+        <div class="section-title">
+          <h2>سجل التقدم</h2>
+          <p>متابعة الوزن والسعرات عبر الزمن.</p>
+        </div>
+        <div id="historyChart" class="chart"></div>
+        <div id="progressList" class="list compact"></div>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
