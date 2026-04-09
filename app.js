@@ -128,6 +128,8 @@ const generateSummaryButton = document.getElementById("generateSummaryButton");
 const shareEmailButton = document.getElementById("shareEmailButton");
 const shareWhatsappButton = document.getElementById("shareWhatsappButton");
 const summaryOutput = document.getElementById("summaryOutput");
+const generateMealPlanButton = document.getElementById("generateMealPlanButton");
+const mealPlanBox = document.getElementById("mealPlanBox");
 let latestLookup = null;
 
 progressDateInput.value = today;
@@ -173,6 +175,7 @@ function bindEvents() {
   generateSummaryButton.addEventListener("click", handleGenerateSummary);
   shareEmailButton.addEventListener("click", handleShareEmail);
   shareWhatsappButton.addEventListener("click", handleShareWhatsapp);
+  generateMealPlanButton.addEventListener("click", handleGenerateMealPlan);
 }
 
 function populateFoodOptions() {
@@ -588,6 +591,7 @@ function render() {
   renderMealList();
   renderProgress();
   renderAdvice();
+  renderMealPlanPlaceholder();
   renderSummaryPlaceholder();
 }
 
@@ -797,6 +801,12 @@ function renderSummaryPlaceholder() {
   }
 }
 
+function renderMealPlanPlaceholder() {
+  if (!mealPlanBox.dataset.generated) {
+    mealPlanBox.innerHTML = '<div class="info-box subtle">أدخل بياناتك الشخصية ثم اضغط على زر الاقتراح للحصول على خطة يومية مناسبة.</div>';
+  }
+}
+
 function handleGenerateSummary() {
   const summary = buildDailySummary();
   summaryOutput.textContent = summary;
@@ -820,6 +830,33 @@ function handleShareWhatsapp() {
 
   const text = encodeURIComponent(summary);
   window.open(`https://wa.me/?text=${text}`, "_blank");
+}
+
+function handleGenerateMealPlan() {
+  const plan = buildDailyMealPlan();
+  if (!plan) {
+    mealPlanBox.dataset.generated = "true";
+    mealPlanBox.innerHTML = '<div class="info-box subtle">أدخل العمر والطول والوزن أولاً حتى أستطيع اقتراح طعام مناسب لك.</div>';
+    return;
+  }
+
+  mealPlanBox.dataset.generated = "true";
+  mealPlanBox.innerHTML = `
+    <div class="plan-card">
+      <h3>الهدف اليومي</h3>
+      <p>${plan.goalText}</p>
+    </div>
+    ${plan.meals.map((meal) => `
+      <div class="plan-card">
+        <h3>${meal.title}</h3>
+        <p>${meal.description}</p>
+      </div>
+    `).join("")}
+    <div class="plan-card">
+      <h3>ملاحظة</h3>
+      <p>${plan.note}</p>
+    </div>
+  `;
 }
 
 function buildDailySummary() {
@@ -880,6 +917,101 @@ function buildAdviceLinesForSummary(caloriesToday) {
   }
 
   return lines;
+}
+
+function buildDailyMealPlan() {
+  const { age, weight, height, gender } = state.profile;
+  if (!age || !weight || !height) {
+    return null;
+  }
+
+  const bmi = calculateBmi(weight, height);
+  const bmr = calculateBmr(gender, weight, height, age);
+  const targetCalories = bmi >= 25
+    ? Math.max(Math.round(bmr - 350), 1200)
+    : Math.max(Math.round(bmr), 1400);
+
+  const breakfastTarget = Math.round(targetCalories * 0.25);
+  const lunchTarget = Math.round(targetCalories * 0.35);
+  const dinnerTarget = Math.round(targetCalories * 0.25);
+  const snackTarget = Math.max(targetCalories - breakfastTarget - lunchTarget - dinnerTarget, 100);
+
+  const breakfast = pickFoodsForTarget(
+    ["ألبان - Dairy", "حبوب - Grains", "فواكه - Fruits"],
+    breakfastTarget,
+    ["لبن يوناني", "زبادي يوناني", "شوفان", "تفاح", "موز", "سكير"]
+  );
+  const lunch = pickFoodsForTarget(
+    ["لحوم - Meat", "أسماك - Fish", "خضروات - Vegetables", "حبوب - Grains", "أطباق - Arabic Dishes", "بقوليات - Legumes"],
+    lunchTarget,
+    ["دجاج", "سمك", "أرز", "أرز بني", "برغل", "عدس", "حمص", "سلطة", "الجرجير"]
+  );
+  const dinner = pickFoodsForTarget(
+    ["أسماك - Fish", "لحوم - Meat", "خضروات - Vegetables", "ألبان - Dairy", "بقوليات - Legumes"],
+    dinnerTarget,
+    ["لبن يوناني", "زبادي", "تونة", "سلطة", "الجرجير", "عدس", "خضروات"]
+  );
+  const snack = pickFoodsForTarget(
+    ["فواكه - Fruits", "ألبان - Dairy", "مكسرات - Nuts", "مشروبات - Drinks"],
+    snackTarget,
+    ["تفاح", "موز", "زبادي", "سكير", "مكسرات", "حليب"]
+  );
+
+  return {
+    goalText: `النطاق المناسب لك اليوم تقريباً هو ${targetCalories} سعرة. هذا الاقتراح موزع على الفطور والغداء والعشاء والوجبة الخفيفة.`,
+    meals: [
+      { title: `فطور (${breakfast.total} سعرة تقريباً)`, description: breakfast.description },
+      { title: `غداء (${lunch.total} سعرة تقريباً)`, description: lunch.description },
+      { title: `عشاء (${dinner.total} سعرة تقريباً)`, description: dinner.description },
+      { title: `وجبة خفيفة (${snack.total} سعرة تقريباً)`, description: snack.description }
+    ],
+    note: bmi >= 25
+      ? "بما أن الهدف يميل إلى نزول الوزن، حاول اختيار الشوي أو السلق وقلل الزيوت والحلويات والخبز الزائد."
+      : "هذا الاقتراح مناسب للمحافظة أو التنظيم المعتدل. راقب الجوع الحقيقي وحجم الحصص."
+  };
+}
+
+function pickFoodsForTarget(categories, targetCalories, preferredTerms) {
+  const candidates = foodDatabase.filter((food) => {
+    const category = food.category || "";
+    return categories.some((value) => category.includes(value));
+  });
+
+  const preferred = candidates.filter((food) => {
+    const text = normalizeArabicText([food.name, food.englishName, ...(food.aliases || [])].join(" "));
+    return preferredTerms.some((term) => text.includes(normalizeArabicText(term)));
+  });
+
+  const pool = preferred.length ? preferred : candidates;
+  const selected = [];
+  let total = 0;
+
+  for (const food of pool) {
+    const calories = Math.round(food.calories || food.caloriesPer100g || 0);
+    if (!calories || calories > targetCalories * 0.85) {
+      continue;
+    }
+
+    selected.push(food);
+    total += calories;
+    if (total >= targetCalories * 0.75) {
+      break;
+    }
+  }
+
+  if (!selected.length && pool.length) {
+    selected.push(pool[0]);
+    total = Math.round(pool[0].calories || pool[0].caloriesPer100g || 0);
+  }
+
+  const description = selected.length
+    ? selected.map((food) => `${food.name} (${Math.round(food.calories || food.caloriesPer100g || 0)} سعرة)`).join(" + ")
+    : "لم أجد اقتراحاً مناسباً في المكتبة الحالية.";
+
+  return {
+    total,
+    description
+  };
 }
 
 function calculateBmi(weight, heightCm) {
