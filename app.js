@@ -1,11 +1,13 @@
 const STORAGE_KEY = "arabic-calorie-assistant";
 
 const fallbackFoodDatabase = [
-  { name: "أرز أبيض", englishName: "White Rice", caloriesPer100g: 130, calories: 205, weight: 158, aliases: ["أرز أبيض", "White Rice"] },
-  { name: "دجاج مشوي", englishName: "Grilled Chicken", caloriesPer100g: 165, calories: 220, weight: 133, aliases: ["دجاج مشوي", "Grilled Chicken"] },
-  { name: "سمك مشوي", englishName: "Grilled Fish", caloriesPer100g: 128, calories: 190, weight: 148, aliases: ["سمك مشوي", "Grilled Fish"] },
-  { name: "بيض مسلوق", englishName: "Boiled Egg", caloriesPer100g: 155, calories: 78, weight: 50, aliases: ["بيض مسلوق", "Boiled Egg"] },
-  { name: "زبادي قليل الدسم", englishName: "Low Fat Yogurt", caloriesPer100g: 63, calories: 95, weight: 150, aliases: ["زبادي قليل الدسم", "Low Fat Yogurt"] }
+  { name: "أرز أبيض", englishName: "White Rice", category: "حبوب - Grains", caloriesPer100g: 130, calories: 205, weight: 158, aliases: ["أرز أبيض", "White Rice"] },
+  { name: "دجاج مشوي", englishName: "Grilled Chicken", category: "لحوم - Meat", caloriesPer100g: 165, calories: 220, weight: 133, aliases: ["دجاج مشوي", "Grilled Chicken"] },
+  { name: "سمك مشوي", englishName: "Grilled Fish", category: "أسماك - Fish", caloriesPer100g: 128, calories: 190, weight: 148, aliases: ["سمك مشوي", "Grilled Fish"] },
+  { name: "بيض مسلوق", englishName: "Boiled Egg", category: "ألبان - Dairy", caloriesPer100g: 155, calories: 78, weight: 50, aliases: ["بيض مسلوق", "Boiled Egg"] },
+  { name: "زبادي قليل الدسم", englishName: "Low Fat Yogurt", category: "ألبان - Dairy", caloriesPer100g: 63, calories: 95, weight: 150, aliases: ["زبادي قليل الدسم", "Low Fat Yogurt"] },
+  { name: "تفاح", englishName: "Apple", category: "فواكه - Fruits", caloriesPer100g: 52, calories: 95, weight: 182, aliases: ["تفاح", "Apple"] },
+  { name: "موز", englishName: "Banana", category: "فواكه - Fruits", caloriesPer100g: 89, calories: 105, weight: 118, aliases: ["موز", "Banana"] }
 ];
 
 const foodDatabase = Array.isArray(window.FOODS_LIBRARY) && window.FOODS_LIBRARY.length
@@ -972,23 +974,38 @@ function buildDailyMealPlan() {
 }
 
 function pickFoodsForTarget(categories, targetCalories, preferredTerms) {
-  const candidates = foodDatabase.filter((food) => {
-    const category = food.category || "";
-    return categories.some((value) => category.includes(value));
-  });
+  const candidates = foodDatabase
+    .map((food) => {
+      const searchableText = normalizeArabicText([
+        food.name,
+        food.englishName,
+        food.category,
+        ...(food.aliases || [])
+      ].filter(Boolean).join(" "));
+      const calories = Math.round(food.calories || food.caloriesPer100g || 0);
+      const categoryScore = categories.some((value) => searchableText.includes(normalizeArabicText(value))) ? 3 : 0;
+      const preferredScore = preferredTerms.reduce((score, term) => (
+        searchableText.includes(normalizeArabicText(term)) ? score + 2 : score
+      ), 0);
 
-  const preferred = candidates.filter((food) => {
-    const text = normalizeArabicText([food.name, food.englishName, ...(food.aliases || [])].join(" "));
-    return preferredTerms.some((term) => text.includes(normalizeArabicText(term)));
-  });
+      return {
+        ...food,
+        searchableText,
+        calories,
+        score: categoryScore + preferredScore
+      };
+    })
+    .filter((food) => food.calories > 0)
+    .sort((a, b) => b.score - a.score);
 
-  const pool = preferred.length ? preferred : candidates;
+  const pool = candidates.filter((food) => food.score > 0);
+  const fallbackPool = pool.length ? pool : candidates;
   const selected = [];
   let total = 0;
 
-  for (const food of pool) {
-    const calories = Math.round(food.calories || food.caloriesPer100g || 0);
-    if (!calories || calories > targetCalories * 0.85) {
+  for (const food of fallbackPool) {
+    const calories = food.calories;
+    if (!calories || calories > targetCalories * 0.9) {
       continue;
     }
 
@@ -999,13 +1016,13 @@ function pickFoodsForTarget(categories, targetCalories, preferredTerms) {
     }
   }
 
-  if (!selected.length && pool.length) {
-    selected.push(pool[0]);
-    total = Math.round(pool[0].calories || pool[0].caloriesPer100g || 0);
+  if (!selected.length && fallbackPool.length) {
+    selected.push(fallbackPool[0]);
+    total = fallbackPool[0].calories;
   }
 
   const description = selected.length
-    ? selected.map((food) => `${food.name} (${Math.round(food.calories || food.caloriesPer100g || 0)} سعرة)`).join(" + ")
+    ? selected.map((food) => `${food.name} (${food.calories} سعرة)`).join(" + ")
     : "لم أجد اقتراحاً مناسباً في المكتبة الحالية.";
 
   return {
