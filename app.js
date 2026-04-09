@@ -938,25 +938,21 @@ function buildDailyMealPlan() {
   const dinnerTarget = Math.round(targetCalories * 0.25);
   const snackTarget = Math.max(targetCalories - breakfastTarget - lunchTarget - dinnerTarget, 100);
 
-  const breakfast = pickFoodsForTarget(
-    ["ألبان - Dairy", "حبوب - Grains", "فواكه - Fruits"],
+  const breakfast = buildMealFromNames(
     breakfastTarget,
-    ["لبن يوناني", "زبادي يوناني", "شوفان", "تفاح", "موز", "سكير"]
+    ["لبن يوناني", "زبادي يوناني", "زبادي قليل الدسم", "شوفان", "تفاح", "موز", "سكير", "حليب"]
   );
-  const lunch = pickFoodsForTarget(
-    ["لحوم - Meat", "أسماك - Fish", "خضروات - Vegetables", "حبوب - Grains", "أطباق - Arabic Dishes", "بقوليات - Legumes"],
+  const lunch = buildMealFromNames(
     lunchTarget,
-    ["دجاج", "سمك", "أرز", "أرز بني", "برغل", "عدس", "حمص", "سلطة", "الجرجير"]
+    ["دجاج مشوي", "دجاج", "سمك مشوي", "سمك", "أرز أبيض", "أرز بني", "برغل", "عدس مطبوخ", "عدس", "حمص", "سلطة خضراء", "الجرجير"]
   );
-  const dinner = pickFoodsForTarget(
-    ["أسماك - Fish", "لحوم - Meat", "خضروات - Vegetables", "ألبان - Dairy", "بقوليات - Legumes"],
+  const dinner = buildMealFromNames(
     dinnerTarget,
-    ["لبن يوناني", "زبادي", "تونة", "سلطة", "الجرجير", "عدس", "خضروات"]
+    ["تونة", "سمك مشوي", "زبادي", "لبن يوناني", "عدس", "سلطة خضراء", "الجرجير", "خيار", "طماطم"]
   );
-  const snack = pickFoodsForTarget(
-    ["فواكه - Fruits", "ألبان - Dairy", "مكسرات - Nuts", "مشروبات - Drinks"],
+  const snack = buildMealFromNames(
     snackTarget,
-    ["تفاح", "موز", "زبادي", "سكير", "مكسرات", "حليب"]
+    ["تفاح", "موز", "سكير", "زبادي قليل الدسم", "مكسرات", "حليب", "تمر"]
   );
 
   return {
@@ -973,37 +969,30 @@ function buildDailyMealPlan() {
   };
 }
 
-function pickFoodsForTarget(categories, targetCalories, preferredTerms) {
-  const candidates = foodDatabase
-    .map((food) => {
-      const searchableText = normalizeArabicText([
-        food.name,
-        food.englishName,
-        food.category,
-        ...(food.aliases || [])
-      ].filter(Boolean).join(" "));
-      const calories = Math.round(food.calories || food.caloriesPer100g || 0);
-      const categoryScore = categories.some((value) => searchableText.includes(normalizeArabicText(value))) ? 3 : 0;
-      const preferredScore = preferredTerms.reduce((score, term) => (
-        searchableText.includes(normalizeArabicText(term)) ? score + 2 : score
-      ), 0);
+function buildMealFromNames(targetCalories, preferredNames) {
+  const matchedFoods = preferredNames
+    .map((name) => findFoodInLibrary(name) || createFallbackFood(name))
+    .filter(Boolean)
+    .map((food) => ({
+      ...food,
+      calories: Math.round(food.calories || food.caloriesPer100g || 0)
+    }))
+    .filter((food) => food.calories > 0);
 
-      return {
-        ...food,
-        searchableText,
-        calories,
-        score: categoryScore + preferredScore
-      };
-    })
-    .filter((food) => food.calories > 0)
-    .sort((a, b) => b.score - a.score);
+  const uniqueFoods = [];
+  const seen = new Set();
+  for (const food of matchedFoods) {
+    const key = normalizeArabicText(food.name || "");
+    if (!seen.has(key)) {
+      seen.add(key);
+      uniqueFoods.push(food);
+    }
+  }
 
-  const pool = candidates.filter((food) => food.score > 0);
-  const fallbackPool = pool.length ? pool : candidates;
   const selected = [];
   let total = 0;
 
-  for (const food of fallbackPool) {
+  for (const food of uniqueFoods) {
     const calories = food.calories;
     if (!calories || calories > targetCalories * 0.9) {
       continue;
@@ -1016,9 +1005,9 @@ function pickFoodsForTarget(categories, targetCalories, preferredTerms) {
     }
   }
 
-  if (!selected.length && fallbackPool.length) {
-    selected.push(fallbackPool[0]);
-    total = fallbackPool[0].calories;
+  if (!selected.length && uniqueFoods.length) {
+    selected.push(uniqueFoods[0]);
+    total = uniqueFoods[0].calories;
   }
 
   const description = selected.length
@@ -1029,6 +1018,38 @@ function pickFoodsForTarget(categories, targetCalories, preferredTerms) {
     total,
     description
   };
+}
+
+function createFallbackFood(name) {
+  const calories = lookupFallbackIngredientValue(name);
+  if (!calories) {
+    return null;
+  }
+
+  return {
+    name,
+    englishName: "",
+    aliases: [name],
+    calories,
+    caloriesPer100g: calories
+  };
+}
+
+function lookupFallbackIngredientValue(query) {
+  const normalized = normalizeArabicText(query);
+  const directEntry = Object.entries(ingredientFallbackDatabase).find(
+    ([key]) => normalizeArabicText(key) === normalized
+  );
+
+  if (directEntry) {
+    return directEntry[1];
+  }
+
+  const partialEntry = Object.entries(ingredientFallbackDatabase).find(([key]) =>
+    normalized.includes(normalizeArabicText(key)) || normalizeArabicText(key).includes(normalized)
+  );
+
+  return partialEntry ? partialEntry[1] : 0;
 }
 
 function calculateBmi(weight, heightCm) {
